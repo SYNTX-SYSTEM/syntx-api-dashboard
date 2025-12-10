@@ -2,18 +2,18 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import { endpoints, Endpoint, BASE_URL } from '@/config/endpoints';
 import { EndpointStatus } from '@/types/syntx';
 import { useSystemHealth } from '@/hooks/useSystemHealth';
 import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { ResponseViewer } from '@/components/core/ResponseViewer';
-import { RequestBuilder } from '@/components/core/RequestBuilder';
+import { RequestPanel } from '@/components/core/RequestPanel';
 import { ToastContainer, ToastMessage } from '@/components/core/Toast';
 import { ErrorLogPanel, LogEntry } from '@/components/panels/ErrorLogPanel';
 import { EndpointStatsPanel } from '@/components/panels/EndpointStatsPanel';
-import { NeuralBackground } from '@/components/visualizations/NeuralBackground';
-import Image from 'next/image';
+import { ParticleStorm } from '@/components/visualizations/ParticleStorm';
 
 interface ApiResponse { data: unknown; status: number; duration: number; size: number; success: boolean; }
 
@@ -34,10 +34,10 @@ function extractErrorMessage(data: unknown): string {
     }
     if (obj.message) return String(obj.message);
     if (obj.error) return String(obj.error);
-    if (obj.msg) return String(obj.msg);
   }
   return 'Request failed';
 }
+
 function extractHint(data: unknown): string | undefined {
   if (data && typeof data === 'object') {
     const obj = data as Record<string, unknown>;
@@ -50,7 +50,6 @@ function extractHint(data: unknown): string | undefined {
   }
   return undefined;
 }
-
 
 export default function Dashboard() {
   const [statuses, setStatuses] = useState<Record<string, EndpointStatus>>({});
@@ -133,6 +132,7 @@ export default function Dashboard() {
   function handleSelectEndpoint(ep: Endpoint) {
     setSelectedEndpoint(ep);
     setResponse(null);
+    setQueryParams({});
     fireRequest(ep);
   }
 
@@ -163,7 +163,6 @@ export default function Dashboard() {
       setResponse({ data, status: res.status, duration, size: JSON.stringify(data).length, success: res.ok });
       setStatuses(prev => ({ ...prev, [endpoint.path]: { path: endpoint.path, online: res.ok, loading: false } }));
 
-      // Add to log
       addLog({
         type: res.ok ? 'success' : res.status >= 500 ? 'error' : 'warning',
         endpoint: endpoint.path,
@@ -191,7 +190,7 @@ export default function Dashboard() {
   if (initialLoading) {
     return (
       <div className="min-h-screen bg-[#030405] relative overflow-hidden">
-        <NeuralBackground />
+        <ParticleStorm />
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center">
             <div className="flex justify-center mb-8">
@@ -199,10 +198,15 @@ export default function Dashboard() {
                 <Image src="/Logo1.png" alt="SYNTX" fill className="object-contain" />
               </motion.div>
             </div>
-            <motion.h1 className="text-5xl font-black mb-3" style={{ fontFamily: 'Orbitron', background: 'linear-gradient(135deg, #00ffff, #00ff88)', backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>SYNTX</motion.h1>
+            <motion.h1 className="text-5xl font-black mb-3" style={{ fontFamily: 'Orbitron', background: 'linear-gradient(135deg, #00ffff, #00ff88)', backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }} animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 2, repeat: Infinity }}>
+              SYNTX
+            </motion.h1>
             <p className="text-[#00ffff]/60 text-sm mb-10">Initializing Command Center...</p>
             <div className="w-96 mx-auto">
-              <div className="flex justify-between text-xs text-[#5a6575] mb-3"><span>Scanning Endpoints</span><span className="text-[#00ffff]">{loadingProgress}%</span></div>
+              <div className="flex justify-between text-xs text-[#5a6575] mb-3">
+                <span>Scanning Endpoints</span>
+                <span className="text-[#00ffff]">{loadingProgress}%</span>
+              </div>
               <div className="h-3 bg-[#0a0e14] rounded-full overflow-hidden border border-[#1a2535]">
                 <motion.div className="h-full rounded-full" style={{ background: 'linear-gradient(90deg, #00ffff, #00ff88)', width: `${loadingProgress}%` }} />
               </div>
@@ -215,46 +219,50 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#030405] relative">
-      <NeuralBackground />
+      <ParticleStorm />
       <div className="relative z-10">
         <Header endpointCount={endpoints.length} onlineCount={onlineCount} version={health?.api_version || ''} />
 
-        <div className="max-w-[2000px] mx-auto p-5 grid grid-cols-[500px_1fr] gap-5 h-[calc(100vh-85px)]">
+        <div className="max-w-[2200px] mx-auto p-5 grid grid-cols-[450px_1fr] gap-5 h-[calc(100vh-85px)]">
           <Sidebar statuses={statuses} selectedEndpoint={selectedEndpoint} onSelectEndpoint={handleSelectEndpoint} onCheckAll={handleCheckAll} checkingAll={checkingAll} />
 
           <div className="flex flex-col gap-4 overflow-hidden">
             <EndpointStatsPanel statuses={statuses} totalEndpoints={endpoints.length} checkingAll={checkingAll} onCheckAll={handleCheckAll} />
+            
+            {logs.length > 0 && <ErrorLogPanel logs={logs} onClear={clearLogs} />}
 
-            {/* Error Log Panel */}
-            <ErrorLogPanel logs={logs} onClear={clearLogs} />
+            {/* Main Content - 50/50 Split */}
+            <div className="flex-1 grid grid-cols-2 gap-5 min-h-0">
+              {/* Left: Request Panel */}
+              <RequestPanel
+                endpoint={selectedEndpoint}
+                onParamsChange={setQueryParams}
+                onBodyChange={setRequestBody}
+                onFire={() => fireRequest()}
+                loading={responseLoading}
+                queryParams={queryParams}
+                requestBody={requestBody}
+              />
 
-            <div className="flex-1 grid grid-cols-[380px_1fr] gap-4 min-h-0">
-              <div className="flex flex-col gap-3">
-                {selectedEndpoint ? (
-                  <>
-                    <div className="bg-[#0a0e14] border border-[#1a2535] rounded-xl p-4">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className={`text-xs font-bold px-3 py-1.5 rounded-lg ${selectedEndpoint.method === 'GET' ? 'bg-[#00ff88]/20 text-[#00ff88]' : 'bg-[#00ffff]/20 text-[#00ffff]'}`}>{selectedEndpoint.method}</span>
-                        <code className="text-sm text-white font-mono">{selectedEndpoint.path}</code>
-                      </div>
-                      <p className="text-xs text-[#5a6575]">{selectedEndpoint.description}</p>
-                    </div>
-                    <RequestBuilder method={selectedEndpoint.method} onParamsChange={setQueryParams} onBodyChange={setRequestBody} onFire={() => fireRequest()} loading={responseLoading} />
-                  </>
-                ) : (
-                  <div className="flex-1 flex items-center justify-center bg-[#0a0e14] border border-[#1a2535] rounded-xl">
-                    <div className="text-center">
-                      <motion.div className="text-5xl mb-4" animate={{ x: [-5, 5, -5] }} transition={{ duration: 1.5, repeat: Infinity }}>👈</motion.div>
-                      <p className="text-[#5a6575] text-lg">Select an endpoint</p>
-                    </div>
+              {/* Right: Response */}
+              <div className="bg-[#0a0e14] border border-[#1a2535] rounded-2xl overflow-hidden flex flex-col">
+                <div className="px-5 py-4 border-b border-[#1a2535] flex items-center justify-between bg-[#080b10]">
+                  <div className="flex items-center gap-3">
+                    <motion.div className="w-3 h-3 rounded-full bg-[#00ffff]" animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 2, repeat: Infinity }} />
+                    <span className="text-base text-white font-semibold">Response</span>
                   </div>
-                )}
+                  {response && (
+                    <div className="flex items-center gap-3 text-xs">
+                      <span className={`font-bold px-2 py-1 rounded ${response.success ? 'text-[#00ff88] bg-[#00ff88]/10' : 'text-[#ff4466] bg-[#ff4466]/10'}`}>{response.status}</span>
+                      <span className="text-[#5a6575]">{response.duration}ms</span>
+                      <span className="text-[#5a6575]">{(response.size / 1024).toFixed(1)}KB</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 p-4 overflow-auto">
+                  <ResponseViewer response={response} loading={responseLoading} />
+                </div>
               </div>
-
-              <main className="bg-[#0a0e14] border border-[#1a2535] rounded-xl overflow-hidden flex flex-col">
-                <div className="px-5 py-3 border-b border-[#1a2535]"><span className="text-sm text-[#00ffff] font-semibold">Response</span></div>
-                <div className="flex-1 p-4 overflow-auto"><ResponseViewer response={response} loading={responseLoading} /></div>
-              </main>
             </div>
           </div>
         </div>

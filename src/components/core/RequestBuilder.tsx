@@ -9,15 +9,13 @@ interface RequestBuilderProps {
   onBodyChange: (body: string) => void;
   onFire: () => void;
   loading: boolean;
-  requiredParams?: string[];
 }
 
-export function RequestBuilder({ method, onParamsChange, onBodyChange, onFire, loading, requiredParams = [] }: RequestBuilderProps) {
+export function RequestBuilder({ method, onParamsChange, onBodyChange, onFire, loading }: RequestBuilderProps) {
   const [activeTab, setActiveTab] = useState<'params' | 'body' | 'headers'>('params');
   const [params, setParams] = useState<Array<{ key: string; value: string }>>([{ key: '', value: '' }]);
   const [body, setBody] = useState('{\n  \n}');
 
-  // Reset params when method changes
   useEffect(() => {
     setParams([{ key: '', value: '' }]);
     onParamsChange({});
@@ -60,119 +58,148 @@ export function RequestBuilder({ method, onParamsChange, onBodyChange, onFire, l
   ];
 
   return (
-    <div className="bg-[#0a0e14] border border-[#1a2535] rounded-xl overflow-hidden flex-1 flex flex-col">
-      {/* Tabs */}
-      <div className="flex border-b border-[#1a2535]">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-gradient-to-br from-[#0a0e14] to-[#080b10] border border-[#1a2535] rounded-2xl overflow-hidden shadow-2xl"
+    >
+      {/* Tabs - Schöner gestylt */}
+      <div className="flex bg-[#060809] border-b border-[#1a2535]">
         {tabs.map(tab => (
           <motion.button
             key={tab.id}
             onClick={() => !tab.disabled && setActiveTab(tab.id as typeof activeTab)}
-            className={`flex-1 px-4 py-3 text-sm font-medium transition-all relative flex items-center justify-center gap-2 ${
+            className={`flex-1 px-5 py-4 text-sm font-semibold transition-all relative flex items-center justify-center gap-2 ${
               activeTab === tab.id 
-                ? 'text-[#00ffff]' 
+                ? 'text-[#00ffff] bg-gradient-to-b from-[#00ffff]/10 to-transparent' 
                 : tab.disabled 
                 ? 'text-[#2a3545] cursor-not-allowed'
-                : 'text-[#5a6575] hover:text-[#8a95a5]'
+                : 'text-[#5a6575] hover:text-[#8a95a5] hover:bg-[#0a0e14]'
             }`}
-            whileHover={!tab.disabled ? { backgroundColor: 'rgba(0,255,255,0.05)' } : {}}
+            whileHover={!tab.disabled ? { y: -1 } : {}}
           >
-            <span>{tab.icon}</span>
+            <span className="text-lg">{tab.icon}</span>
             <span>{tab.label}</span>
             {tab.count !== undefined && tab.count > 0 && (
-              <span className="bg-[#00ffff]/20 text-[#00ffff] text-xs px-1.5 py-0.5 rounded-full">{tab.count}</span>
+              <motion.span 
+                className="bg-gradient-to-r from-[#00ffff] to-[#00ff88] text-[#0a0e14] text-xs px-2 py-0.5 rounded-full font-bold"
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+              >
+                {tab.count}
+              </motion.span>
             )}
             {activeTab === tab.id && (
-              <motion.div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#00ffff] to-[#00ff88]" layoutId="activeTab" />
+              <motion.div 
+                className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#00ffff] to-[#00ff88] rounded-t-full" 
+                layoutId="activeTab" 
+              />
             )}
           </motion.button>
         ))}
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 overflow-auto p-4">
+      <div className="p-5">
         <AnimatePresence mode="wait">
           {activeTab === 'params' && (
             <motion.div
               key="params"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-3"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="space-y-4"
             >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-[#5a6575] uppercase tracking-wider">Parameters</span>
+                <span className="text-xs text-[#00ffff]">{params.filter(p => p.key).length} active</span>
+              </div>
+
               {/* Param Rows */}
-              {params.map((param, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="flex gap-2 items-center"
-                >
-                  <input
-                    type="text"
-                    placeholder="Key"
-                    value={param.key}
-                    onChange={e => updateParam(i, 'key', e.target.value)}
-                    className="flex-1 bg-[#080b10] border border-[#1a2535] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a4550] focus:border-[#00ffff] focus:outline-none transition-all"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Value"
-                    value={param.value}
-                    onChange={e => updateParam(i, 'value', e.target.value)}
-                    className="flex-1 bg-[#080b10] border border-[#1a2535] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a4550] focus:border-[#00ffff] focus:outline-none transition-all"
-                  />
-                  {params.length > 1 && (
-                    <motion.button
-                      onClick={() => removeParam(i)}
-                      className="w-10 h-10 flex items-center justify-center text-[#ff4466] hover:bg-[#ff4466]/10 rounded-lg transition-all text-xl"
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      ×
-                    </motion.button>
-                  )}
-                </motion.div>
-              ))}
+              <div className="space-y-3">
+                {params.map((param, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="flex gap-3 items-center group"
+                  >
+                    <div className="flex-1 relative">
+                      <input
+                        type="text"
+                        placeholder="Key"
+                        value={param.key}
+                        onChange={e => updateParam(i, 'key', e.target.value)}
+                        className="w-full bg-[#060809] border-2 border-[#1a2535] rounded-xl px-4 py-3 text-sm text-white placeholder-[#3a4550] focus:border-[#00ffff] focus:outline-none focus:ring-2 focus:ring-[#00ffff]/20 transition-all"
+                      />
+                      {param.key && (
+                        <motion.div 
+                          className="absolute right-3 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-[#00ff88]"
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                        />
+                      )}
+                    </div>
+                    <span className="text-[#3a4550] text-xl">=</span>
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        placeholder="Value"
+                        value={param.value}
+                        onChange={e => updateParam(i, 'value', e.target.value)}
+                        className="w-full bg-[#060809] border-2 border-[#1a2535] rounded-xl px-4 py-3 text-sm text-[#00ff88] placeholder-[#3a4550] focus:border-[#00ffff] focus:outline-none focus:ring-2 focus:ring-[#00ffff]/20 transition-all font-mono"
+                      />
+                    </div>
+                    {params.length > 1 && (
+                      <motion.button
+                        onClick={() => removeParam(i)}
+                        className="w-10 h-10 flex items-center justify-center text-[#ff4466] hover:bg-[#ff4466]/10 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                      >
+                        ✕
+                      </motion.button>
+                    )}
+                  </motion.div>
+                ))}
+              </div>
 
               {/* Add Param Button */}
               <motion.button
                 onClick={addParam}
-                className="w-full py-3 rounded-xl border-2 border-dashed border-[#1a2535] text-[#5a6575] hover:border-[#00ffff] hover:text-[#00ffff] transition-all flex items-center justify-center gap-2"
+                className="w-full py-4 rounded-xl border-2 border-dashed border-[#1a2535] text-[#5a6575] hover:border-[#00ffff] hover:text-[#00ffff] hover:bg-[#00ffff]/5 transition-all flex items-center justify-center gap-3 group"
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
               >
-                <span className="text-xl">+</span>
-                <span>Add Parameter</span>
+                <motion.span 
+                  className="w-8 h-8 rounded-full bg-[#1a2535] group-hover:bg-[#00ffff]/20 flex items-center justify-center text-xl transition-all"
+                  whileHover={{ rotate: 90 }}
+                >
+                  +
+                </motion.span>
+                <span className="font-medium">Add Parameter</span>
               </motion.button>
-
-              {/* Required Params Hint */}
-              {requiredParams.length > 0 && (
-                <div className="mt-4 p-3 bg-[#ffaa00]/10 border border-[#ffaa00]/20 rounded-lg">
-                  <div className="text-xs text-[#ffaa00] font-semibold mb-1">⚠ Required Parameters:</div>
-                  <div className="flex flex-wrap gap-2">
-                    {requiredParams.map(p => (
-                      <span key={p} className="text-xs bg-[#ffaa00]/20 text-[#ffaa00] px-2 py-1 rounded">{p}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
             </motion.div>
           )}
 
           {activeTab === 'body' && (
             <motion.div
               key="body"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="h-full"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
             >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs text-[#5a6575] uppercase tracking-wider">JSON Body</span>
+                <span className="text-xs text-[#00ffff] bg-[#00ffff]/10 px-2 py-1 rounded">application/json</span>
+              </div>
               <textarea
                 value={body}
                 onChange={e => handleBodyChange(e.target.value)}
                 placeholder='{"key": "value"}'
-                className="w-full h-full min-h-[200px] bg-[#080b10] border border-[#1a2535] rounded-lg px-4 py-3 text-sm text-[#00ff88] font-mono placeholder-[#3a4550] focus:border-[#00ffff] focus:outline-none transition-all resize-none"
+                className="w-full h-48 bg-[#060809] border-2 border-[#1a2535] rounded-xl px-4 py-3 text-sm text-[#00ff88] font-mono placeholder-[#3a4550] focus:border-[#00ffff] focus:outline-none focus:ring-2 focus:ring-[#00ffff]/20 transition-all resize-none"
                 spellCheck={false}
               />
             </motion.div>
@@ -181,45 +208,66 @@ export function RequestBuilder({ method, onParamsChange, onBodyChange, onFire, l
           {activeTab === 'headers' && (
             <motion.div
               key="headers"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-2"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="space-y-3"
             >
-              <div className="flex gap-2 items-center opacity-60">
-                <input type="text" value="Content-Type" readOnly className="flex-1 bg-[#080b10] border border-[#1a2535] rounded-lg px-3 py-2.5 text-sm text-[#5a6575]" />
-                <input type="text" value="application/json" readOnly className="flex-1 bg-[#080b10] border border-[#1a2535] rounded-lg px-3 py-2.5 text-sm text-[#00ffff]" />
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs text-[#5a6575] uppercase tracking-wider">Request Headers</span>
+                <span className="text-xs text-[#5a6575]">Auto-configured</span>
               </div>
-              <p className="text-xs text-[#3a4550] mt-2">Headers are automatically set based on request type.</p>
+              <div className="bg-[#060809] border border-[#1a2535] rounded-xl p-4 flex items-center gap-4">
+                <span className="text-sm text-[#5a6575]">Content-Type</span>
+                <span className="text-sm text-[#00ffff] font-mono bg-[#00ffff]/10 px-3 py-1 rounded-lg">application/json</span>
+              </div>
+              <p className="text-xs text-[#3a4550] mt-2">Headers are automatically configured based on request type.</p>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
       {/* Fire Button */}
-      <div className="p-4 border-t border-[#1a2535]">
+      <div className="p-5 pt-0">
         <motion.button
           onClick={onFire}
           disabled={loading}
-          className="w-full py-4 rounded-xl font-bold text-base relative overflow-hidden"
+          className="w-full py-5 rounded-xl font-bold text-lg relative overflow-hidden group"
           style={{ background: 'linear-gradient(135deg, #00ffff, #00ff88)' }}
-          whileHover={{ scale: 1.02, boxShadow: '0 0 40px rgba(0,255,255,0.4)' }}
+          whileHover={{ scale: 1.02, boxShadow: '0 0 50px rgba(0,255,255,0.4)' }}
           whileTap={{ scale: 0.98 }}
         >
+          {/* Animated shine */}
           <motion.div
-            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"
             animate={{ x: ['-100%', '200%'] }}
             transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
           />
+          {/* Pulse ring */}
+          <motion.div
+            className="absolute inset-0 rounded-xl border-2 border-white/30"
+            animate={{ scale: [1, 1.05, 1], opacity: [0.5, 0, 0.5] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+          />
           <span className="relative text-[#0a0e14] flex items-center justify-center gap-3">
             {loading ? (
-              <><motion.span animate={{ rotate: 360 }} transition={{ duration: 0.5, repeat: Infinity, ease: 'linear' }}>⚡</motion.span> Firing...</>
+              <>
+                <motion.span 
+                  animate={{ rotate: 360 }} 
+                  transition={{ duration: 0.5, repeat: Infinity, ease: 'linear' }}
+                >
+                  ⚡
+                </motion.span> 
+                Firing...
+              </>
             ) : (
-              <>🚀 Fire Request</>
+              <>
+                🚀 Fire Request
+              </>
             )}
           </span>
         </motion.button>
       </div>
-    </div>
+    </motion.div>
   );
 }
